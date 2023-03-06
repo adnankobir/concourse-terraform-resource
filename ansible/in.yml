@@ -1,0 +1,29 @@
+- hosts: localhost
+  gather_facts: true
+  vars:
+    team: "{{ concourse_build_team }}"
+  tasks:
+    - include_tasks: aws_creds.yml
+
+    - name: download version archive from s3
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ storage.aws_access_key_id | default(aws_creds.access_key, true) }}"
+        AWS_SECRET_ACCESS_KEY: "{{ storage.aws_secret_access_key | default(aws_creds.secret_key, true) }}"
+        AWS_SESSION_TOKEN: "{{ '' if storage.aws_access_key_id and storage.aws_secret_access_key else aws_creds.security_token }}"
+      aws_s3:
+        mode: get
+        bucket: "{{ storage.bucket }}"
+        object: "{{ version.key }}"
+        version: "{{ version.version_id }}"
+        region: "{{ storage.region }}"
+        dest: "{{ workdir }}/version.tgz"
+
+    - name: extract version files
+      unarchive:
+        src: "{{ workdir }}/version.tgz"
+        dest: "{{ workdir }}"
+
+    - name: remove version archive
+      file:
+        path: "{{ workdir }}/version.tgz"
+        state: absent

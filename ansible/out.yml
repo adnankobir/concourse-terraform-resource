@@ -1,0 +1,94 @@
+- hosts: localhost
+  gather_facts: true
+  vars:
+    team: "{{ concourse_build_team }}"
+  tasks:
+    - include_tasks: aws_creds.yml
+
+    - include_tasks: terraform_backend.yml
+      tags: tfbackend
+
+    - name: execute terraform
+      environment:
+        AWS_ACCESS_KEY_ID: "{{ aws_creds.access_key }}"
+        AWS_SECRET_ACCESS_KEY: "{{ aws_creds.secret_key }}"
+        AWS_SESSION_TOKEN: "{{ aws_creds.security_token }}"
+      block:
+        - name: write resource variables to file
+          copy:
+            content: "{{ terraform_vars | default({}, true) | to_nice_json }}"
+            dest: "{{ terraform_path }}/resource.auto.tfvars.json"
+
+        - name: write backend variables to file
+          copy:
+            content: "{{ terraform_meta['data'] | default({}, true) | to_nice_json }}"
+            dest: "{{ terraform_path }}/backend.auto.tfvars.json"
+
+        - name: run terraform plan
+          community.general.terraform:
+            project_path: "{{ terraform_path }}"
+            workspace: "{{ terraform_workspace }}"
+            backend_config: "{{ terraform_backend }}"
+            force_init: true
+            state: planned
+            plan_file: "{{ terraform_path }}/tfplan"
+            variables_files: "{{ terraform_var_files | default([], true) }}"
+          register: plan
+
+        - name: terraform plan
+          debug:
+            msg: "{{ plan.stdout }}"
+
+        - name: run terraform apply
+          when: not plan_only
+          community.general.terraform:
+            project_path: "{{ terraform_path }}"
+            workspace: "{{ terraform_workspace }}"
+            backend_config: "{{ terraform_backend }}"
+            state: present
+            plan_file: "{{ terraform_path }}/tfplan"
+          register: apply
+
+        - name: terraform apply
+          when: not plan_only
+          debug:
+            msg: "{{ apply.stdout }}"
+
+      always:
+        - name: generate output files
+          when: not plan_only and false # always skip for now
+          block:
+            - name: terraform outputs
+              copy:
+                content: "{{ plan.outputs | to_nice_json }}"
+                dest: "{{ workdir }}/outputs.json"
+
+            - name: terraform metadata
+              copy:
+                content: "{{ terraform_workspace }}"
+                dest: "{{ workdir }}/workspace.txt"
+
+            - name: create version archive
+              archive:
+                dest: "{{ workdir }}/version.tgz"
+                path:
+                  - "{{ workdir }}/outputs.json"
+                  - "{{ workdir }}/workspace.txt"
+
+            - name: upload version to s3
+              environment:
+                AWS_SESSION_TOKEN: ""
+              aws_s3:
+                aws_access_key: "{{ storage.aws_access_key_id }}"
+                aws_secret_key: "{{ storage.aws_secret_access_key }}"
+                mode: put
+                bucket: "{{ storage.bucket }}"
+                object: "{{ storage.key }}"
+                region: "{{ storage.region }}"
+                src: "{{ workdir }}/version.tgz"
+              register: version
+
+            - name: write version id to version_id
+              copy:
+                content: "{{ version.url | regex_replace('^.+versionId=(?P<version>[^&]+).*', '\\g<version>') }}"
+                dest: "{{ workdir }}/version_id"

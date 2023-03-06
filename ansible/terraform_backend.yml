@@ -1,0 +1,8 @@
+- name: fetch terraform backend metadata
+  set_fact:
+    terraform_meta: "{{ lookup('hashi_vault', 'secret=/concourse/' + team + '/terraform:value', as='raw') }}"
+
+- name: set terraform backend configuration
+  set_fact:
+    terraform_backend: "{{ terraform_meta['data']['backend'] }}"
+  tags: tfbackend
