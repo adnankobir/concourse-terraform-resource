@@ -31,32 +31,55 @@
             backend_config: "{{ terraform_backend }}"
             force_init: true
             state: planned
-            plan_file: "{{ terraform_path }}/tfplan"
+            plan_file: "{{ terraform_path }}/{{ terraform_workspace }}"
             variables_files: "{{ terraform_var_files | default([], true) }}"
           register: plan
 
+        # no color support: https://github.com/ansible-collections/community.general/issues/5613
         - name: terraform plan
           debug:
             msg: "{{ plan.stdout }}"
 
+        - name: tfsec
+          when: plan_only
+          block:
+            - name: run tfsec
+              command: tfsec "{{ terraform_path }}" --concise-output -s --tfvars-file "{{ terraform_var_files | first }}" -w "{{ terraform_workspace }}"
+              register: tfsec
+
+            - name: tfsec
+              debug:
+                msg: "{{ tfsec.stdout }}"
+
+
+        - name: run terraform destroy
+          when: not plan_only and destroy
+          community.general.terraform:
+            project_path: "{{ terraform_path }}"
+            workspace: "{{ terraform_workspace }}"
+            backend_config: "{{ terraform_backend }}"
+            state: absent
+            plan_file: "{{ terraform_path }}/{{ terraform_workspace }}"
+            purge_workspace: true
+
         - name: run terraform apply
-          when: not plan_only
+          when: not plan_only and not destroy
           community.general.terraform:
             project_path: "{{ terraform_path }}"
             workspace: "{{ terraform_workspace }}"
             backend_config: "{{ terraform_backend }}"
             state: present
-            plan_file: "{{ terraform_path }}/tfplan"
+            plan_file: "{{ terraform_path }}/{{ terraform_workspace }}"
           register: apply
 
         - name: terraform apply
-          when: not plan_only
+          when: not plan_only and not destroy
           debug:
             msg: "{{ apply.stdout }}"
 
       always:
         - name: generate output files
-          when: not plan_only and false # always skip for now
+          when: not plan_only and false # always skip
           block:
             - name: terraform outputs
               copy:
