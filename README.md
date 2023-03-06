@@ -119,8 +119,8 @@ put: terraform
 params:
   # extract input context from filesystem
   input_mapping: file("gate/item.json").parse_json() 
-  # lookup input.vars.context, default to qa1-use2
-  context: ${!json("vars.context).or("qa1-use2")}
+  # lookup input.vars.context, default to use1-prod-1
+  context: ${!json("vars.context).or("use1-prod-1")}
   # will use input.vars or default to {}
   vars_mapping: vars.or({}) 
 ```
@@ -225,6 +225,6 @@ docker push <account>.dkr.ecr.<region>.amazonaws.com/concourse-terraform-resourc
 - Change the image tag in the `examples/test/pipeline.yaml` on the `pipeline` branch under `resource_types.source.tag` to `<my-unique-tag>`
 - Update pipeline with fly 
 ```
-fly -t ops-shared crt -r concourse-terraform-resource-test/terraform
+fly -t <concourse-target> crt -r concourse-terraform-resource-test/terraform
 ```
 - Manually trigger the pipeline from the plus sign in the top right corner
