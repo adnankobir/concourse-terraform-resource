@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/Jeffail/gabs/v2"
 	"github.com/adnankobir/concourse-terraform-resource/internal/types"
+	"github.com/Jeffail/gabs/v2"
 )
 
 // Ansible manages state for an ansible-playbook invocation
@@ -30,14 +30,17 @@ func NewAnsible(src *types.Source, out io.Writer, env *types.Environment, playbo
 	// define extra ansible playbook environment variables
 	ansible.envs = append(os.Environ(), toList(map[string]string{
 		"ANSIBLE_FORCE_COLOR": "True",
+		//"PY_COLORS":           "1",
 		//"ANSIBLE_CALLBACKS_ENABLED":       "selective",
 		//"ANSIBLE_STDOUT_CALLBACK":         "selective",
+		//"ANSIBLE_LOAD_CALLBACK_PLUGINS":   "1",
 		"ANSIBLE_STDOUT_CALLBACK":         "debug",
 		"ANSIBLE_DISPLAY_SKIPPED_HOSTS":   "False",
 		"ANSIBLE_HASHI_VAULT_ADDR":        src.Vault.Addr,
 		"ANSIBLE_HASHI_VAULT_AUTH_METHOD": "approle",
 		"ANSIBLE_HASHI_VAULT_ROLE_ID":     src.Vault.RoleID,
 		"ANSIBLE_HASHI_VAULT_SECRET_ID":   src.Vault.SecretID,
+		"ANSIBLE_COLOR_OK":                "white",
 	})...)
 
 	// enable ansible debug logs if debug flag is set

@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/adnankobir/concourse-terraform-resource/internal/types"
 	"github.com/Jeffail/benthos/v3/lib/bloblang"
 	"github.com/Jeffail/benthos/v3/lib/message"
 	"github.com/Jeffail/gabs/v2"
-	"github.com/adnankobir/concourse-terraform-resource/internal/types"
 )
 
 // Out describes an out command executor
@@ -197,6 +197,8 @@ func (cmd *Out) injectExtraVars(extraVars *gabs.Container, req *types.OutRequest
 	extraVars.Set(path.Join(cmd.args[1], req.Params.Dir), "terraform_path")
 
 	extraVars.Set(req.Params.PlanOnly, "plan_only")
+
+	extraVars.Set(req.Params.Destroy, "destroy")
 
 	return nil
 }
